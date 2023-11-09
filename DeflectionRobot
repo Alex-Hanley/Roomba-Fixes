@@ -1,0 +1,97 @@
+from irobot_edu_sdk.backend.bluetooth import Bluetooth
+from irobot_edu_sdk.robots import event, hand_over, Color, Robot, Root, Create3
+from irobot_edu_sdk.music import Note
+
+import math as m
+
+# robot is the instance of the robot that will allow us to call
+# its methods and to define events with the @event decorator.
+robot = Create3(Bluetooth("NAME"))
+bumper = False
+IR_ANGLES = [-65.3, -38.0, -20.0, -3.0, 14.25, 34.0, 65.3]
+
+def findMaxProximity(readings):
+    global maxProximityIndex
+    maxProximity = readings[0]      
+    for read in readings:          
+        if read > maxProximity:     
+            maxProximity = read  
+    return maxProximity
+
+def calculate_proximity(ir_reading):
+    return 4095 / (ir_reading + 1)
+
+
+
+# LEFT BUTTON
+@event(robot.when_touched, [True, False])  # User buttons: [(.), (..)]
+async def when_left_button_touched(robot):
+    global bumper
+    bumper = True
+    await robot.set_wheel_speeds(0, 0)
+    await robot.set_lights(Robot.LIGHT_ON,Color(255,0,0))
+    await robot.stop.sound()
+
+
+# RIGHT BUTTON
+@event(robot.when_touched, [False, True])  # User buttons: [(.), (..)]
+async def when_right_button_touched(robot):
+    global bumper
+    bumper = True
+    await robot.set_wheel_speeds(0, 0)
+    await robot.set_lights(Robot.LIGHT_ON,Color(255,0,0))
+    await robot.stop.sound()
+
+
+# EITHER BUMPER
+@event(robot.when_bumped, [True, True])  # [left, right]
+async def when_either_bumped(robot):
+    global bumper
+    bumper = True
+    await robot.set_wheel_speeds(0, 0)
+    await robot.set_lights(Robot.LIGHT_ON,Color(255,0,0))
+    await robot.stop.sound()
+
+
+@event(robot.when_play)
+async def robotPong(robot):
+    await robot.set_wheel_speeds(15, 15)
+    await robot.set_lights(Robot.LIGHT_SPIN,Color(0,255,255))
+    while True:
+        if bumper == False:
+            reading = (await robot.get_ir_proximity()).sensors
+            proximity = findMaxProximity(reading)
+            proximity = calculate_proximity(proximity)
+            if proximity <= 20:
+                await robot.set_lights(Robot.LIGHT_SPIN,Color(255,0,255))
+                await robot.set_wheel_speeds(0, 0)
+                angleFinished = getApproachAngle(reading, IR_ANGLES)
+                if angleFinished > 0:
+                    reflectionAngle = 180 - 2 * angleFinished
+                    await robot.turn_right(reflectionAngle)
+                else:
+                    reflectionAngle = 180 + 2 * angleFinished
+                    await robot.turn_left(reflectionAngle)
+            await robot.set_wheel_speeds(15, 15)
+            await robot.set_lights(Robot.LIGHT_SPIN,Color(0,255,255))
+        else:
+            await robot.set_wheel_speeds(0, 0)
+            await robot.set_lights(Robot.LIGHT_ON,Color(255,0,0))
+            await robot.stop.sound()
+
+
+
+def getApproachAngle(reading, angles):
+    global IR_ANGLES
+    maxProximity = reading[0]
+    for read in reading:
+        if read > maxProximity:
+            maxProximity = read
+    index = reading.index(maxProximity)
+    angleFinished = angles[index]
+    print(angleFinished)
+    return angleFinished
+
+
+# ask for desired
+robot.play()
